@@ -1,7 +1,8 @@
 import streamlit as st
 import requests
 
-API_URL = "https://rag-based-llm-system-6wde.onrender.com"
+# API_URL = "https://rag-based-llm-system-6wde.onrender.com"
+API_URL = "http://localhost:8000"  # Use this for local testing
 
 st.title("🧠 AI Research Assistant")
 
