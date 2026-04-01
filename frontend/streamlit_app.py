@@ -38,3 +38,21 @@ if st.button("Ask RAG"):
         st.write(res.json())
     else:
         st.error(res.text)
+
+if st.button("Run Multi-Agent"):
+    res = requests.post(f"{API_URL}/agent/", json={"query": query})
+    data = res.json()
+
+    if res.status_code != 200:
+        st.error(f"API Error: {res.text}")
+    else:
+        data = res.json()
+
+        st.subheader("🧠 Plan")
+        st.write(data.get("plan", "No plan returned"))
+
+        st.subheader("⚙️ Draft")
+        st.write(data.get("draft", "No draft returned"))
+
+        st.subheader("✅ Final Answer")
+        st.write(data.get("final", "No final answer returned"))
