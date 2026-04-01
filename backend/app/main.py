@@ -1,4 +1,6 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import shutil
 import os
 
@@ -6,61 +8,102 @@ from backend.app.utils import extract_text_from_pdf, chunk_text
 from backend.app.rag import create_vector_store, build_rag_chain
 from backend.app.agents import build_agent
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app = FastAPI()
 
+# ✅ CORS (required for Streamlit)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or your Streamlit URL
+    allow_origins=["*"],  # restrict later if needed
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ✅ Request schema
+class QueryRequest(BaseModel):
+    query: str
+
+# ✅ Globals (rebuilt from disk when needed)
+rag_chain = None
+agent = None
+
+# ✅ Health check
 @app.get("/")
 def root():
     return {"message": "API is running"}
 
-rag_chain = None
-agent = None
-
+# ✅ Upload and process PDF
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
-    path = f"temp_{file.filename}"
-    
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        path = f"temp_{file.filename}"
 
-    text = extract_text_from_pdf(path)
-    chunks = chunk_text(text)
+        # Save uploaded file
+        with open(path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    create_vector_store(chunks)
+        # Extract + chunk
+        text = extract_text_from_pdf(path)
+        chunks = chunk_text(text)
 
+        # Create and persist vector store
+        create_vector_store(chunks)  # must internally save FAISS
+
+        # Build chains
+        global rag_chain, agent
+        rag_chain = build_rag_chain()
+        agent = build_agent()
+
+        # Cleanup
+        os.remove(path)
+
+        return {"message": "File processed successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ✅ Ensure models are loaded (important for Render restart)
+def ensure_models_loaded():
     global rag_chain, agent
-    rag_chain = build_rag_chain()
-    agent = build_agent()
 
-    os.remove(path)
+    if rag_chain is None or agent is None:
+        try:
+            rag_chain = build_rag_chain()
+            agent = build_agent()
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="No vector store found. Upload a document first."
+            )
 
-    return {"message": "File processed successfully"}
 
+# ✅ Agent endpoint
 @app.post("/ask/")
-async def ask_question(query: str):
-    if agent is None:
-        return {"error": "Upload documents first"}
+async def ask_question(req: QueryRequest):
+    ensure_models_loaded()
 
-    response = agent.run(query)
-    return {"response": response}
+    try:
+        response = agent.run(req.query)
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+
+# ✅ RAG endpoint
 @app.post("/rag/")
-async def rag_query(query: str):
-    if rag_chain is None:
-        return {"error": "Upload documents first"}
+async def rag_query(req: QueryRequest):
+    ensure_models_loaded()
 
-    result = rag_chain(query)
-    
-    return {
-        "answer": result["result"],
-        "sources": [doc.page_content[:200] for doc in result["source_documents"]]
-    }
+    try:
+        result = rag_chain(req.query)
+
+        return {
+            "answer": result["result"],
+            "sources": [
+                doc.page_content[:200] for doc in result["source_documents"]
+            ]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

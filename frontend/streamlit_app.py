@@ -8,16 +8,32 @@ st.title("🧠 AI Research Assistant")
 uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
 
 if uploaded_file:
-    files = {"file": uploaded_file.getvalue()}
-    response = requests.post(f"{API_URL}/upload/", files={"file": uploaded_file})
-    st.success("File uploaded!")
+    files = {
+        "file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")
+    }
+
+    with st.spinner("Uploading and processing..."):
+        response = requests.post(f"{API_URL}/upload/", files=files)
+
+    if response.status_code == 200:
+        st.success("File uploaded!")
+    else:
+        st.error(response.text)
 
 query = st.text_input("Ask a question")
 
 if st.button("Ask Agent"):
-    res = requests.post(f"{API_URL}/ask/", params={"query": query})
-    st.write(res.json())
+    res = requests.post(f"{API_URL}/ask/", json={"query": query})
+    
+    if res.status_code == 200:
+        st.write(res.json())
+    else:
+        st.error(res.text)
 
 if st.button("Ask RAG"):
-    res = requests.post(f"{API_URL}/rag/", params={"query": query})
-    st.write(res.json())
+    res = requests.post(f"{API_URL}/rag/", json={"query": query})
+
+    if res.status_code == 200:
+        st.write(res.json())
+    else:
+        st.error(res.text)

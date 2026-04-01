@@ -14,3 +14,4 @@ bin/
 include/
 lib/
 .vscode/
+faiss_index/
