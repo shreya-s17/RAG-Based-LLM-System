@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+langchain
+langchain_openai
+langchain_community
+langchain_classic
+openai
+tiktoken
+pydantic
+python-multipart
+pdfplumber
+python-docx
+pandas
+sentence-transformers
+faiss-cpu
+requests
+streamlit
+pinecone-client  # if using Pinecone
+weaviate-client  # if using Weaviate
