@@ -6,14 +6,19 @@ from backend.app.utils import extract_text_from_pdf, chunk_text
 from backend.app.rag import create_vector_store, build_rag_chain
 from backend.app.agents import build_agent
 
-# import os
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-# print("KEY:", os.getenv("OPENAI_API_KEY"))
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or your Streamlit URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 rag_chain = None
 agent = None
