@@ -4,7 +4,68 @@ import requests
 # API_URL = "https://rag-based-llm-system-6wde.onrender.com"
 API_URL = "http://localhost:8000"  # Use this for local testing
 
+st.set_page_config(page_title="AI Research Assistant", layout="wide")
 st.title("🧠 AI Research Assistant")
+
+# =========================
+# 🔹 SESSION MEMORY (CHAT)
+# =========================
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# =========================
+# 🔹 CHAT DISPLAY
+# =========================
+st.subheader("💬 Chat (Memory Enabled)")
+
+for chat in st.session_state.chat_history:
+    with st.chat_message(chat["role"]):
+        st.markdown(chat["content"])
+
+user_input = st.chat_input("Ask something about your documents...")
+
+if user_input:
+    # Store user input
+    st.session_state.chat_history.append({
+        "role": "user",
+        "content": user_input
+    })
+
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Call backend memory endpoint
+    response = requests.post(
+        f"{API_URL}/chat/",
+        json={"query": user_input}   # ✅ FIX
+    )
+
+    if response.status_code == 200:
+        answer = response.json().get("response", "Error")
+
+        with st.chat_message("assistant"):
+            st.markdown(answer)
+
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": answer
+        })
+    else:
+        st.error(response.text)
+
+# =========================
+# 🔹 CLEAR MEMORY
+# =========================
+if st.button("🗑️ Clear Chat"):
+    st.session_state.chat_history = []
+    st.success("Chat cleared!")
+
+
+
+# =========================
+# 🔹 FILE UPLOAD 
+# =========================
+st.subheader("📄 Upload Document")
 
 uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
 
@@ -21,7 +82,16 @@ if uploaded_file:
     else:
         st.error(response.text)
 
+# =========================
+# 🔹 MANUAL QUERY SECTION 
+# =========================
+st.subheader("🔍 Manual Query (Debug / Testing)")
+
 query = st.text_input("Ask a question")
+
+# -------------------------
+# BASIC AGENT
+# -------------------------
 
 if st.button("Ask Agent"):
     res = requests.post(f"{API_URL}/ask/", json={"query": query})
@@ -31,6 +101,10 @@ if st.button("Ask Agent"):
     else:
         st.error(res.text)
 
+# -------------------------
+# BASIC RAG
+# -------------------------
+
 if st.button("Ask RAG"):
     res = requests.post(f"{API_URL}/rag/", json={"query": query})
 
@@ -38,6 +112,10 @@ if st.button("Ask RAG"):
         st.write(res.json())
     else:
         st.error(res.text)
+
+# -------------------------
+# MULTI AGENT
+# -------------------------
 
 if st.button("Run Multi-Agent"):
     res = requests.post(f"{API_URL}/agent/", json={"query": query})
@@ -56,6 +134,11 @@ if st.button("Run Multi-Agent"):
 
         st.subheader("✅ Final Answer")
         st.write(data.get("final", "No final answer returned"))
+
+
+# -------------------------
+# MULTI AGENT + CITATIONS
+# -------------------------
 
 if st.button("Run Multi-Agent-With-Citations"):
     res = requests.post(f"{API_URL}/agent_with_citations/", json={"query": query})
@@ -78,6 +161,11 @@ if st.button("Run Multi-Agent-With-Citations"):
     st.subheader("📚 Sources")
     for s in data["sources"]:
         st.write(f"Source {s['id']}: {s['content']}")
+
+
+# -------------------------
+# HYBRID + RERANKING
+# -------------------------
 
 if st.button("Run Multi-Agent-With-Citations-Hybrid-Retrieval-And-Reranking"):
     res = requests.post(f"{API_URL}/agent_with_citations_hybrid_retrieval_and_reranking/", json={"query": query})

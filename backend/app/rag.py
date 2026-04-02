@@ -35,11 +35,16 @@ VECTOR_DB = None
 BM25_INDEX = None
 DOCS = []
 
-def create_vector_store(chunks):
+def create_vector_store_with_bm25(chunks):
     global VECTOR_DB, BM25_INDEX, DOCS
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
     VECTOR_DB = FAISS.from_texts(chunks, embeddings)
+    print("Vector store with BM25 created and saved.")
+    print("Sample chunk:", chunks[0][:100])
+    print("Sample vector:", VECTOR_DB.index.reconstruct(0)[:5])  # Print first 5 dimensions of the first vector
 
     # BM25 setup
     tokenized_docs = [doc.split(" ") for doc in chunks]
@@ -80,6 +85,7 @@ def get_retriever():
 
 # ✅ Get Hybrid retriever safely
 def hybrid_retrieve(query, k=5):
+    
     # Semantic search
     semantic_docs = VECTOR_DB.similarity_search(query, k=k)
 

@@ -5,9 +5,11 @@ import shutil
 import os
 
 from backend.app.utils import extract_text_from_pdf, chunk_text
-from backend.app.rag import create_vector_store, build_rag_chain
-from backend.app.agents import build_agent, run_multi_agent_with_citations, run_multi_agent, run_rag_with_citations_hybrid_retrieve_and_reranking
+from backend.app.rag import create_vector_store, build_rag_chain, create_vector_store_with_bm25
+from backend.app.agents import build_agent, run_multi_agent_with_citations, run_multi_agent, run_rag_with_citations_hybrid_retrieve_and_reranking, run_rag_with_memory
+from backend.app.memory import ConversationMemory
 
+memory = ConversationMemory()
 app = FastAPI()
 
 # ✅ CORS (required for Streamlit)
@@ -48,6 +50,7 @@ async def upload_file(file: UploadFile = File(...)):
 
         # Create and persist vector store
         create_vector_store(chunks)  # must internally save FAISS
+        create_vector_store_with_bm25(chunks)  # also create BM25 index
 
         # Build chains
         global rag_chain, agent
@@ -130,11 +133,7 @@ async def multi_agent(req: QueryRequest):
 @app.post("/agent_with_citations/")
 async def multi_agent_with_citations(req: QueryRequest):
     try:
-        print("Received query:", req.query)
-
         result = run_multi_agent_with_citations(req.query)
-
-        print("Returning:", result)
 
         return result
 
@@ -158,3 +157,10 @@ async def multi_agent_with_citations_hybrid_retrieval_and_reranking(req: QueryRe
     except Exception as e:
         print("ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# ✅ RAG with memory endpoint
+@app.post("/chat/")
+async def chat(req: QueryRequest):
+    response = run_rag_with_memory(req.query, memory)
+    return {"response": response}

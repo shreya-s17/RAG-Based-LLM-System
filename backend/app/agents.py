@@ -32,6 +32,7 @@ Output ONLY steps in numbered format.
 """)
 
 def planner_agent(query):
+    print("Planning query:", query)
     prompt = planner_prompt.format(query=query)
     plan = llm.invoke(prompt)
     return plan
@@ -132,7 +133,7 @@ def run_multi_agent(query):
 # 🚀 RAG WITH CITATIONS
 # =========================
 
-rag_prompt = PromptTemplate.from_template("""
+rag_prompt_with_citations = PromptTemplate.from_template("""
 You are a factual QA assistant.
 
 Use ONLY the provided context to answer.
@@ -153,6 +154,7 @@ Answer:
 
 def run_rag_with_citations(query):
     retriever = get_retriever()
+
     docs = retriever.invoke(query)
 
     context = ""
@@ -165,8 +167,9 @@ def run_rag_with_citations(query):
             "content": doc.page_content[:200]
         })
 
-    prompt = rag_prompt.format(context=context, question=query)
+    prompt = rag_prompt_with_citations.format(context=context, question=query)
     answer = llm.invoke(prompt).content
+
 
     return {
         "answer": answer,
@@ -213,13 +216,56 @@ def run_rag_with_citations_hybrid_retrieve_and_reranking(query):
         context += f"\n[SOURCE {i+1}]\n{doc}\n"
         sources.append({"id": i+1, "content": doc[:200]})
 
-    answer = llm.invoke(rag_prompt.format(context=context, question=query)).content
+    answer = llm.invoke(rag_prompt_with_citations.format(context=context, question=query)).content
 
     return {
         "answer": answer,
         "sources": sources,
         "raw_docs": docs
     }
+
+
+# ===================================================
+# 🚀 RAG WITH MEMORY AND LONG TERM CONTEXT
+# ===================================================
+
+rag_prompt_with_memory_and_long_term_context = PromptTemplate.from_template("""
+You are a helpful assistant.
+
+Conversation History:
+{history}
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+""")
+
+def run_rag_with_memory(query, memory):
+    docs = hybrid_retrieve(query)
+    docs = rerank(query, docs)
+
+    context = "\n".join([
+        doc.page_content if hasattr(doc, "page_content") else str(doc)
+        for doc in docs
+    ])
+    history = memory.get_context()
+
+    answer = llm.invoke(
+        rag_prompt_with_memory_and_long_term_context.format(
+            history=history,
+            context=context,
+            question=query
+        )
+    ).content
+
+    memory.add(query, answer)
+
+    return answer
+
 
 
 
