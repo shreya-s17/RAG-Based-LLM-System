@@ -6,7 +6,7 @@ import os
 
 from backend.app.utils import extract_text_from_pdf, chunk_text
 from backend.app.rag import create_vector_store, build_rag_chain
-from backend.app.agents import build_agent, run_multi_agent
+from backend.app.agents import build_agent, run_multi_agent_with_citations, run_multi_agent
 
 app = FastAPI()
 
@@ -116,6 +116,23 @@ async def multi_agent(req: QueryRequest):
         print("Received query:", req.query)
 
         result = run_multi_agent(req.query)
+
+        print("Returning:", result)
+
+        return result
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+# ✅ Multi-Agent with citations endpoint
+@app.post("/agent_with_citations/")
+async def multi_agent_with_citations(req: QueryRequest):
+    try:
+        print("Received query:", req.query)
+
+        result = run_multi_agent_with_citations(req.query)
 
         print("Returning:", result)
 

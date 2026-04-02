@@ -3,9 +3,10 @@ from langchain_classic.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 from backend.app.rag import get_retriever
 from langchain_core.prompts import PromptTemplate
-from backend.app.rag import get_retriever
+from backend.app.rag import critic_with_scoring
 
 llm = ChatOpenAI(temperature=0)
+
 
 # =========================
 # 🔹 TOOL: RAG RETRIEVER
@@ -126,6 +127,78 @@ def run_multi_agent(query):
         "draft": draft,
         "final": final
     }
+
+# =========================
+# 🚀 RAG WITH CITATIONS
+# =========================
+
+rag_prompt = PromptTemplate.from_template("""
+You are a factual QA assistant.
+
+Use ONLY the provided context to answer.
+
+Rules:
+- If answer not in context → say "I don't know"
+- Cite sources using [SOURCE #]
+- Be precise and avoid hallucination
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+""")
+
+def run_rag_with_citations(query):
+    retriever = get_retriever()
+    docs = retriever.invoke(query)
+
+    context = ""
+    sources = []
+
+    for i, doc in enumerate(docs):
+        context += f"\n[SOURCE {i+1}]\n{doc.page_content}\n"
+        sources.append({
+            "id": i+1,
+            "content": doc.page_content[:200]
+        })
+
+    prompt = rag_prompt.format(context=context, question=query)
+    answer = llm.invoke(prompt).content
+
+    return {
+        "answer": answer,
+        "sources": sources,
+        "raw_docs": docs
+    }
+
+def run_multi_agent_with_citations(query):
+    # Step 1: Plan
+    plan = planner_agent(query)    
+
+    # Step 2: Execute using RAG with citations
+    rag_output = run_rag_with_citations(query)
+
+    draft = rag_output["answer"]    
+    
+    # Step 3: Critic with scoring
+    final = critic_with_scoring(
+        query,
+        draft,
+        rag_output["raw_docs"]
+    )
+
+    return {
+        "plan": plan,
+        "answer": final["final_answer"],
+        "confidence": final["confidence"],
+        "sources": rag_output["sources"]
+    }
+
+
+
 
 def rag_tool_func(query):
     retriever = get_retriever()

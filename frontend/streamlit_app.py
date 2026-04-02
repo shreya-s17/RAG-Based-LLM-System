@@ -56,3 +56,25 @@ if st.button("Run Multi-Agent"):
 
         st.subheader("✅ Final Answer")
         st.write(data.get("final", "No final answer returned"))
+
+if st.button("Run Multi-Agent-With-Citations"):
+    res = requests.post(f"{API_URL}/agent_with_citations/", json={"query": query})
+    data = res.json()
+
+    if res.status_code != 200:
+        st.error(f"API Error: {res.text}")
+    else:
+        data = res.json()
+
+    st.subheader("🧠 Plan")
+    st.write(data["plan"])
+
+    st.subheader("✅ Final Answer")
+    st.write(data["answer"])
+
+    st.subheader("📊 Confidence Score")
+    st.write(data["confidence"])
+
+    st.subheader("📚 Sources")
+    for s in data["sources"]:
+        st.write(f"Source {s['id']}: {s['content']}")

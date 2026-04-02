@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 
 import os
 from dotenv import load_dotenv
+from backend.app.utils import compute_faithfulness
 
 load_dotenv()
 
@@ -68,3 +69,26 @@ def build_rag_chain():
         retriever=retriever,
         return_source_documents=True
     )
+
+
+# ✅ Build RAG with citations and faithfulness scoring
+def critic_with_scoring(query, answer, docs):
+    score = compute_faithfulness(answer, docs)
+
+    if score < 0.3:
+        return {
+            "final_answer": "⚠️ Low confidence: Answer may not be grounded in documents.",
+            "confidence": score
+        }
+
+    elif score < 0.6:
+        return {
+            "final_answer": answer + "\n\n⚠️ Partial confidence. Verify sources.",
+            "confidence": score
+        }
+
+    else:
+        return {
+            "final_answer": answer,
+            "confidence": score
+        }
