@@ -78,3 +78,22 @@ if st.button("Run Multi-Agent-With-Citations"):
     st.subheader("📚 Sources")
     for s in data["sources"]:
         st.write(f"Source {s['id']}: {s['content']}")
+
+if st.button("Run Multi-Agent-With-Citations-Hybrid-Retrieval-And-Reranking"):
+    res = requests.post(f"{API_URL}/agent_with_citations_hybrid_retrieval_and_reranking/", json={"query": query})
+    data = res.json()
+
+    if res.status_code != 200:
+        st.error(f"API Error: {res.text}")
+    else:
+        data = res.json()
+
+    st.subheader("✅ Final Answer")
+    st.write(data["answer"])
+
+    st.subheader("📊 Raw Document")
+    st.write(data["raw_docs"])
+
+    st.subheader("📚 Sources")
+    for s in data["sources"]:
+        st.write(f"Source {s['id']}: {s['content']}")

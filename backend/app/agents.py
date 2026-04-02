@@ -1,9 +1,9 @@
 # from langchain_core.tools import Tool
 from langchain_classic.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
-from backend.app.rag import get_retriever
 from langchain_core.prompts import PromptTemplate
-from backend.app.rag import critic_with_scoring
+from backend.app.rag import get_retriever, hybrid_retrieve, critic_with_scoring
+from backend.app.utils import rerank
 
 llm = ChatOpenAI(temperature=0)
 
@@ -197,6 +197,29 @@ def run_multi_agent_with_citations(query):
         "sources": rag_output["sources"]
     }
 
+
+# ===================================================
+# 🚀 RAG WITH CITATIONS HYBRID RETRIEVE AND RERANKING
+# ===================================================
+
+def run_rag_with_citations_hybrid_retrieve_and_reranking(query):
+    docs = hybrid_retrieve(query)
+    docs = rerank(query, docs)
+
+    context = ""
+    sources = []
+
+    for i, doc in enumerate(docs):
+        context += f"\n[SOURCE {i+1}]\n{doc}\n"
+        sources.append({"id": i+1, "content": doc[:200]})
+
+    answer = llm.invoke(rag_prompt.format(context=context, question=query)).content
+
+    return {
+        "answer": answer,
+        "sources": sources,
+        "raw_docs": docs
+    }
 
 
 

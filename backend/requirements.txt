@@ -16,5 +16,6 @@ sentence-transformers
 faiss-cpu
 requests
 streamlit
+rank_bm25
 pinecone-client  # if using Pinecone
 weaviate-client  # if using Weaviate

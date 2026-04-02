@@ -3,15 +3,16 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_classic.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
+from rank_bm25 import BM25Okapi
 
 import os
+import numpy as np
 from dotenv import load_dotenv
 from backend.app.utils import compute_faithfulness
 
 load_dotenv()
 
 FAISS_PATH = "faiss_index"
-
 
 # ✅ Create + SAVE vector store
 def create_vector_store(chunks):
@@ -27,6 +28,27 @@ def create_vector_store(chunks):
     vector_db.save_local(FAISS_PATH)
 
     return vector_db
+
+
+# ✅ Create + SAVE vector store with BM25 index
+VECTOR_DB = None
+BM25_INDEX = None
+DOCS = []
+
+def create_vector_store(chunks):
+    global VECTOR_DB, BM25_INDEX, DOCS
+
+    embeddings = OpenAIEmbeddings()
+    VECTOR_DB = FAISS.from_texts(chunks, embeddings)
+
+    # BM25 setup
+    tokenized_docs = [doc.split(" ") for doc in chunks]
+    BM25_INDEX = BM25Okapi(tokenized_docs)
+
+    DOCS = chunks
+
+    return VECTOR_DB
+
 
 
 # ✅ Load vector store (for Render restarts)
@@ -45,6 +67,7 @@ def load_vector_store():
     )
 
 
+
 # ✅ Get retriever safely
 def get_retriever():
     vector_db = load_vector_store()
@@ -53,6 +76,24 @@ def get_retriever():
         raise ValueError("Vector store not found. Upload document first.")
 
     return vector_db.as_retriever(search_kwargs={"k": 4})
+
+
+# ✅ Get Hybrid retriever safely
+def hybrid_retrieve(query, k=5):
+    # Semantic search
+    semantic_docs = VECTOR_DB.similarity_search(query, k=k)
+
+    # Keyword search
+    tokenized_query = query.split(" ")
+    bm25_scores = BM25_INDEX.get_scores(tokenized_query)
+
+    top_bm25_indices = np.argsort(bm25_scores)[-k:]
+    keyword_docs = [DOCS[i] for i in top_bm25_indices]
+
+    # Combine results
+    combined = list(set([doc.page_content for doc in semantic_docs] + keyword_docs))
+
+    return combined
 
 
 # ✅ Build RAG chain
